@@ -1,0 +1,42 @@
+#!/usr/bin/env python2.7
+
+import xmlrpclib
+import json
+import sys
+import os
+
+api = xmlrpclib.ServerProxy("http://user:pass@localhost:8442/")
+
+content = str(sys.argv[1]);
+envelope = content.replace("content", "envelope.new")
+
+msgto = ""
+msgfrom = ""
+msgsubject = ""
+msgcontent = ""
+
+efile = open(envelope, 'r')
+for line in efile:
+    if line.startswith('X-MailRelay-From:'):
+        msgfrom = line.replace('X-MailRelay-From: ', '').split('@')[0]
+    elif line.startswith('X-MailRelay-To-Remote:'):
+        msgto = line.replace('X-MailRelay-To-Remote: ', '').split('@')[0]
+efile.close()
+
+contentFound = False
+cfile = open(content, 'r')
+for line in cfile:
+    if contentFound:
+        msgcontent = msgcontent + line
+    elif line.startswith('Subject: '):
+        msgsubject = line.replace('Subject: ', '')
+    elif not line.strip():
+        contentFound = True
+cfile.close()
+
+os.remove(envelope)
+os.remove(content)
+
+api.sendMessage(msgto.strip(), msgfrom.strip(), msgsubject.strip().encode('base64'), msgcontent.encode('base64'))
+
+sys.exit(100) # cancel further processing by emailrelay
